@@ -44,6 +44,8 @@ python server.py
 
 Open <http://127.0.0.1:8765>. Choose a scenario, enter the first test-app URL and a specific task, then start the run. The multi-system scenario also needs the second app's URL. The model can switch between the configured origins with **Ctrl+L**, type the provided URL, and press **Enter**; other origins are blocked. It can use normal in-app links as well.
 
+Run the focused local checks with `python -m unittest discover -s tests -v`.
+
 ## Safety and data handling
 
 - The browser is a fresh, headless Chromium context and is closed when you close or decline a run. It does not reuse the operator's personal browser profile.

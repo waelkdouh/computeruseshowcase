@@ -31,6 +31,47 @@ class BrowserStub:
 
 
 class ComputerUseServerTests(unittest.TestCase):
+    def test_agent_version_and_temporary_agent_are_deleted(self):
+        calls = []
+
+        class Agents:
+            def create_version(self, **kwargs):
+                calls.append(("create_version", kwargs["agent_name"]))
+                return SimpleNamespace(version="1")
+
+            def get(self, **kwargs):
+                return SimpleNamespace(agent_endpoint="previous")
+
+            def update_details(self, **kwargs):
+                calls.append(("update_details", kwargs["agent_endpoint"]))
+
+            def delete_version(self, **kwargs):
+                calls.append(("delete_version", kwargs["agent_version"]))
+
+            def delete(self, **kwargs):
+                calls.append(("delete_agent", kwargs["agent_name"]))
+
+        fake_project = SimpleNamespace(agents=Agents())
+        with patch.object(server, "project", fake_project):
+            with server.create_agent("showcase-test-agent"):
+                calls.append(("run",))
+
+        self.assertEqual(
+            [call[0] for call in calls],
+            [
+                "create_version",
+                "update_details",
+                "run",
+                "update_details",
+                "delete_version",
+                "delete_agent",
+            ],
+        )
+        self.assertIsInstance(calls[1][1], server.AgentEndpointConfig)
+        self.assertEqual(calls[3], ("update_details", "previous"))
+        self.assertEqual(calls[4], ("delete_version", "1"))
+        self.assertEqual(calls[5], ("delete_agent", "showcase-test-agent"))
+
     def test_target_origin_must_be_allowlisted(self):
         with patch.object(server, "ALLOWED_ORIGINS", {"https://crm.example.test"}):
             self.assertEqual(

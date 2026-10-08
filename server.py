@@ -124,17 +124,22 @@ def create_agent(agent_name):
         )
         yield
     finally:
-        if previous_endpoint is not None:
-            project.agents.update_details(
-                agent_name=agent_name,
-                agent_endpoint=previous_endpoint,
-            )
-        if created_version is not None:
-            project.agents.delete_version(
-                agent_name=agent_name,
-                agent_version=created_version.version,
-                force=True,
-            )
+        try:
+            if previous_endpoint is not None:
+                project.agents.update_details(
+                    agent_name=agent_name,
+                    agent_endpoint=previous_endpoint,
+                )
+        finally:
+            if created_version is not None:
+                try:
+                    project.agents.delete_version(
+                        agent_name=agent_name,
+                        agent_version=created_version.version,
+                        force=True,
+                    )
+                finally:
+                    project.agents.delete(agent_name=agent_name, force=True)
 
 
 def action_details(call):
@@ -362,7 +367,8 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/config":
             return self.send_json(200, api_status())
-        requested = Path(unquote(urlsplit(self.path).path).lstrip("/"))
+        path = unquote(urlsplit(self.path).path).lstrip("/")
+        requested = Path(path or "index.html")
         if (
             requested.is_absolute()
             or any(part.startswith(".") for part in requested.parts)
@@ -374,12 +380,17 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         global active_session
         try:
+            host = self.headers.get("Host", "")
+            if host not in (f"{HOST}:{PORT}", f"localhost:{PORT}"):
+                return self.send_json(403, {"error": "The local server accepts loopback requests only."})
             origin = self.headers.get("Origin")
-            if origin and origin not in (
+            if origin not in (
                 f"http://{HOST}:{PORT}",
                 f"http://localhost:{PORT}",
             ):
                 return self.send_json(403, {"error": "Cross-origin requests are not allowed."})
+            if self.headers.get_content_type() != "application/json":
+                return self.send_json(415, {"error": "Requests must use application/json."})
 
             body = self.read_json()
             with session_lock:
