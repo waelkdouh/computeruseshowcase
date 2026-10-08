@@ -1,21 +1,56 @@
-# Computer Use Showcase
+# Microsoft Foundry Computer Use Showcase
 
-A small, dependency-free browser demo of three computer-use workflows:
+This demo makes real calls to a customer-owned Microsoft Foundry project and runs the resulting computer-use actions in an isolated Playwright Chromium browser against the test applications you configure. The agent reads screenshots of those applications and proposes UI actions; the server executes an action only after a person approves it.
 
-- **Legacy application navigation** — open a business app, find a customer, collect account details, and update a record.
-- **Multi-system workflow** — read an email, retrieve information from a portal, update a second system, and prepare a summary.
-- **Human approval** — gather information, prepare a recommendation, pause for a person's decision, and complete the workflow only after approval.
+## Prerequisites
 
-## Run locally
+1. An Azure subscription and Microsoft Foundry project.
+2. Access to the preview `computer-use-preview` model. Request access through the [Microsoft application form](https://aka.ms/oai/cuaaccess), then deploy the model in your Foundry project in a supported region. Use the deployment name in the configuration below.
+3. Azure CLI installed and signed in as an identity allowed to create/use agents and invoke the model in that project.
+4. A dedicated, isolated VM for the showcase, with access only to non-production test applications and accounts. Do not run against production or data you would not send to the model.
+5. Python 3.10 or later.
 
-Open `index.html` in a modern browser, or serve this directory with any static web server, for example:
+See Microsoft's [current Computer Use Preview guide](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/computer-use) for access, region support, current SDKs, and security guidance. The computer-use model is in preview; its availability and API can change.
+
+## Configure and start
 
 ```sh
-python3 -m http.server 8000
+cd /path/to/computeruseshowcase
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m playwright install chromium
+cp .env.example .env
 ```
 
-Then visit <http://localhost:8000>.
+Edit `.env` with the project endpoint shown in your Foundry project's **Overview**, the name of your computer-use model deployment, and the exact origins of the test apps the browser is permitted to access. For example:
 
-Select a workflow and choose **Start workflow**. Advance actions one at a time; the approval workflow presents explicit **Approve** and **Decline** choices before the agent can continue.
+```sh
+FOUNDRY_PROJECT_ENDPOINT=https://your-resource.ai.azure.com/api/projects/your-project
+COMPUTER_USE_MODEL_DEPLOYMENT_NAME=computer-use-preview
+COMPUTER_USE_ALLOWED_ORIGINS=https://crm-test.example.com,https://portal-test.example.com
+PORT=8765
+```
 
-This is an interactive simulation for illustrating workflow patterns. It does not connect to Azure, use a computer-use model, access real applications, or make external changes.
+Authenticate with Azure CLI and start the local server. The endpoint listens only on loopback.
+
+```sh
+az login
+set -a
+. ./.env
+set +a
+python server.py
+```
+
+Open <http://127.0.0.1:8765>. Choose a scenario, enter the first test-app URL and a specific task, then start the run. The multi-system scenario also needs the second app's URL. The model can switch between the configured origins with **Ctrl+L**, type the provided URL, and press **Enter**; other origins are blocked. It can use normal in-app links as well.
+
+## Safety and data handling
+
+- The browser is a fresh, headless Chromium context and is closed when you close or decline a run. It does not reuse the operator's personal browser profile.
+- Every action proposed by the model must be approved in the showcase before the browser executes it. Foundry safety checks are shown alongside the proposed action; approving acknowledges those checks. Declining closes the session without executing that pending action.
+- Browser navigation and subrequests are restricted to the exact origins in `COMPUTER_USE_ALLOWED_ORIGINS`. Add any required test-app or authentication origins explicitly; do not allowlist production systems.
+- Screenshots and prompts, including any visible page contents, are sent to Microsoft Foundry for inference. Use synthetic or otherwise approved demo data. Do not type passwords, secrets, or sensitive personal information into the controlled browser.
+- The model deployment, Azure permissions, target applications, test accounts, and isolated VM belong to the operator/customer; this repository does not provision them.
+- Each run creates a temporary Foundry agent version and removes it when the session is closed. Keep this demo on a trusted local machine or isolated VM; it is not a multi-user web service.
+
+The three scenarios are examples of interaction patterns. Replace their starter task text with a narrow task against your own test systems; use non-production data and review the model's decision at every action.

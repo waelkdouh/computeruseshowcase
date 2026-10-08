@@ -1,189 +1,296 @@
-const workflows = {
+const scenarios = {
   legacy: {
     title: "Legacy application navigation",
-    subtitle: "Update a customer record in a line-of-business app",
+    subtitle: "Find a record and update it through the real application UI.",
     icon: "⌘",
-    name: "Customer records",
-    address: "business.local / customers",
-    steps: [
-      { title: "Launch customer system", detail: "Open the business workspace", screen: "launch" },
-      { title: "Find the customer", detail: "Search for Contoso account", screen: "search" },
-      { title: "Collect account details", detail: "Review customer information", screen: "details" },
-      { title: "Update the record", detail: "Save the requested contact update", screen: "update" },
-    ],
+    task: "Find the customer record I specify, review the relevant account details, and make the specific update I request. Summarize what you changed.",
   },
   multi: {
     title: "Multi-system workflow",
-    subtitle: "Move a request from email to a second system",
+    subtitle: "Read information in one app, update another, and prepare a summary.",
     icon: "⤢",
-    name: "Email & service portal",
-    address: "workspace.local / inbox",
-    steps: [
-      { title: "Read the incoming email", detail: "Identify account and request", screen: "email" },
-      { title: "Retrieve portal information", detail: "Look up the current service plan", screen: "portal" },
-      { title: "Update the second system", detail: "Save the account note in CRM", screen: "crm" },
-      { title: "Create a summary", detail: "Prepare a concise workflow recap", screen: "summary" },
-    ],
+    task: "Read the request in the first application, verify the requested information, update the matching record in the second application, and summarize what you did.",
   },
   approval: {
     title: "Human approval pattern",
-    subtitle: "A person reviews the recommendation before action",
+    subtitle: "Gather evidence and prepare a recommendation for review.",
     icon: "✓",
-    name: "Review workspace",
-    address: "workspace.local / review",
-    steps: [
-      { title: "Gather information", detail: "Review account history and request", screen: "gather" },
-      { title: "Prepare recommendation", detail: "Draft a proposed account adjustment", screen: "recommend" },
-      { title: "Request human approval", detail: "Wait for a person's decision", screen: "approval", gate: true },
-      { title: "Complete the workflow", detail: "Apply the approved adjustment", screen: "complete" },
-    ],
-    approval: "Recommendation: apply a one-time service credit of $50 to Contoso's account based on the verified outage. No change is made until you approve.",
+    task: "Review the account information and request, gather the relevant evidence, and recommend a specific next step. Do not change any records until I approve your recommendation.",
   },
 };
 
-const app = {
-  workflow: "legacy",
-  step: -1,
-  state: "ready",
-};
-
+const state = { scenario: "legacy", sessionId: null, status: "ready", allowedOrigins: [] };
 const elements = {
   cards: [...document.querySelectorAll(".workflow-card")],
   title: document.querySelector("#workflow-title"),
   subtitle: document.querySelector("#workflow-subtitle"),
   icon: document.querySelector("#workspace-icon"),
   status: document.querySelector("#run-status"),
+  activityTitle: document.querySelector("#activity-title"),
+  stepCaption: document.querySelector("#step-caption"),
   screen: document.querySelector("#screen"),
-  caption: document.querySelector("#step-caption"),
   screenApp: document.querySelector("#screen-app"),
-  list: document.querySelector("#step-list"),
   counter: document.querySelector("#step-counter"),
+  startUrl: document.querySelector("#start-url"),
+  secondaryUrl: document.querySelector("#secondary-url"),
+  secondaryLabel: document.querySelector("#secondary-label"),
+  task: document.querySelector("#task-input"),
+  allowed: document.querySelector("#allowed-targets"),
+  setup: document.querySelector("#setup-fields"),
+  action: document.querySelector("#action-card"),
+  actionTitle: document.querySelector("#action-title"),
+  actionDescription: document.querySelector("#action-description"),
+  safetyChecks: document.querySelector("#safety-checks"),
+  recommendationCard: document.querySelector("#recommendation-card"),
+  recommendation: document.querySelector("#recommendation"),
+  feedback: document.querySelector("#feedback"),
   start: document.querySelector("#start-button"),
-  reset: document.querySelector("#reset-button"),
-  approval: document.querySelector("#approval-card"),
-  approvalCopy: document.querySelector("#approval-copy"),
   approve: document.querySelector("#approve-button"),
+  approveRecommendation: document.querySelector("#recommendation-button"),
   decline: document.querySelector("#decline-button"),
+  close: document.querySelector("#close-button"),
 };
 
-const statusLabels = {
+const labels = {
   ready: "Ready",
-  running: "In progress",
-  awaiting: "Awaiting approval",
-  complete: "Completed",
+  starting: "Starting",
+  awaiting_action: "Action needs approval",
+  awaiting_recommendation: "Recommendation ready",
+  completed: "Completed",
   declined: "Declined",
+  error: "Error",
 };
 
-function renderScreen(step) {
-  if (!step) {
-    elements.caption.textContent = "WAITING TO START";
-    elements.screenApp.textContent = workflows[app.workflow].name;
-    elements.screen.innerHTML = '<div class="screen-empty"><span class="screen-empty-icon" aria-hidden="true">⌘</span><strong>Your agent workspace is ready</strong><p>Start the workflow to see the agent move through each task.</p></div>';
-    return;
-  }
-
-  const screenTemplates = {
-    launch: '<div class="mock-app-heading"><strong>Northwind Business System</strong><span>Home · Customers · Reports</span></div><div class="mock-message"><strong>Customer management</strong>Search for a customer account to view contact information, service history, and account status.</div>',
-    search: '<div class="mock-app-heading"><strong>Customer search</strong><span>3 results</span></div><div class="mock-search">⌕ &nbsp; Contoso Ltd.</div><table class="mock-table"><thead><tr><th>Account</th><th>Contact</th><th>Status</th></tr></thead><tbody><tr><td class="mock-highlight">Contoso Ltd.</td><td>Jamie Chen</td><td><span class="mock-tag">Active</span></td></tr><tr><td>Contoso Retail</td><td>R. Patel</td><td>Active</td></tr></tbody></table>',
-    details: '<div class="mock-app-heading"><strong>Contoso Ltd.</strong><span><span class="mock-tag">Active account</span></span></div><table class="mock-table"><tbody><tr><th>Account owner</th><td>Jamie Chen</td></tr><tr><th>Service plan</th><td>Enterprise Plus</td></tr><tr><th>Renewal date</th><td>November 30, 2026</td></tr><tr><th>Last contact</th><td>October 6, 2026</td></tr></tbody></table>',
-    update: '<div class="mock-app-heading"><strong>Edit customer record</strong><span>Contoso Ltd.</span></div><table class="mock-table"><tbody><tr><th>Primary contact</th><td>Jamie Chen</td></tr><tr><th>Account note</th><td class="mock-highlight">Follow up requested · saved</td></tr><tr><th>Record status</th><td><span class="mock-tag">Updated</span></td></tr></tbody></table>',
-    email: '<div class="mock-app-heading"><strong>Inbox</strong><span>1 unread</span></div><div class="mock-message"><strong>From: Jamie Chen · Contoso Ltd.</strong>Could you confirm our current service plan and add a note to our account about next month’s renewal review?<br><br><span>Received: October 8, 2026</span></div>',
-    portal: '<div class="mock-app-heading"><strong>Service portal</strong><span>Account overview</span></div><table class="mock-table"><tbody><tr><th>Account</th><td>Contoso Ltd.</td></tr><tr><th>Plan</th><td>Enterprise Plus</td></tr><tr><th>Renewal</th><td>November 30, 2026</td></tr><tr><th>Portal status</th><td><span class="mock-tag">Verified</span></td></tr></tbody></table>',
-    crm: '<div class="mock-app-heading"><strong>CRM · Contoso Ltd.</strong><span>Account notes</span></div><div class="mock-message"><strong>New note · October 8, 2026</strong>Customer requested confirmation of their Enterprise Plus plan and a follow-up for the November 30 renewal review.<br><br><span class="mock-tag">Saved to account</span></div>',
-    summary: '<div class="mock-app-heading"><strong>Workflow summary</strong><span>Ready to share</span></div><div class="mock-summary"><strong>Contoso renewal request</strong>Confirmed Enterprise Plus service plan in the portal. Added the requested November renewal follow-up to the CRM account. Email and account details matched.</div>',
-    gather: '<div class="mock-app-heading"><strong>Contoso account review</strong><span>Information gathered</span></div><table class="mock-table"><tbody><tr><th>Service status</th><td>Outage resolved</td></tr><tr><th>Incident window</th><td>October 4, 2026</td></tr><tr><th>Account history</th><td>Enterprise Plus · Active</td></tr><tr><th>Customer request</th><td>Review service impact</td></tr></tbody></table>',
-    recommend: '<div class="mock-app-heading"><strong>Recommendation draft</strong><span>Not applied</span></div><div class="mock-summary"><strong>Proposed action: $50 service credit</strong>Verified outage affected the customer’s service. A one-time credit is within the standard support allowance.<br><br>Next step: human review required.</div>',
-    approval: '<div class="mock-app-heading"><strong>Approval required</strong><span>Waiting for reviewer</span></div><div class="mock-summary"><strong>Nothing has been changed.</strong>The agent prepared a recommendation and is paused. Approve or decline in the activity panel to decide what happens next.</div>',
-    complete: '<div class="mock-app-heading"><strong>Contoso account</strong><span><span class="mock-tag">Workflow complete</span></span></div><table class="mock-table"><tbody><tr><th>Service credit</th><td class="mock-highlight">$50 one-time credit applied</td></tr><tr><th>Approval</th><td>Approved by human reviewer</td></tr><tr><th>Account status</th><td>Active</td></tr></tbody></table>',
-  };
-
-  elements.caption.textContent = app.state === "awaiting" ? "HUMAN REVIEW REQUIRED" : `ACTION ${String(app.step + 1).padStart(2, "0")}`;
-  elements.screenApp.textContent = workflows[app.workflow].name;
-  elements.screen.innerHTML = `<div class="mock-window"><div class="mock-toolbar"><span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span><div class="mock-address">${workflows[app.workflow].address}</div></div><div class="mock-app">${screenTemplates[step.screen]}</div></div>`;
+function setStatus(status) {
+  state.status = status;
+  elements.status.dataset.state = status;
+  elements.status.replaceChildren();
+  const dot = document.createElement("span");
+  dot.className = "status-dot";
+  elements.status.append(dot, document.createTextNode(` ${labels[status] || status}`));
 }
 
-function renderSteps() {
-  const { steps } = workflows[app.workflow];
-  elements.list.innerHTML = "";
-  steps.forEach((step, index) => {
-    const item = document.createElement("li");
-    const done = index < app.step || (app.state === "complete" && index <= app.step);
-    const active = index === app.step && ["running", "awaiting"].includes(app.state);
-    item.className = `step-item${done ? " done" : ""}${active ? " active" : ""}`;
-    item.innerHTML = `<span class="step-marker" aria-hidden="true">${done ? "✓" : String(index + 1).padStart(2, "0")}</span><span class="step-text"><strong>${step.title}</strong><span>${done ? "Completed" : active ? (step.gate ? "Waiting for your decision" : "Agent is working") : step.detail}</span></span>`;
-    elements.list.append(item);
-  });
-
-  const completed = app.state === "complete" ? steps.length : Math.max(0, app.step);
-  elements.counter.textContent = `${completed} / ${steps.length}`;
+function setBusy(busy) {
+  elements.start.disabled = busy;
+  elements.approve.disabled = busy;
+  elements.approveRecommendation.disabled = busy;
+  elements.decline.disabled = busy;
+  if (busy) elements.feedback.textContent = "Working with Microsoft Foundry…";
 }
 
 function render() {
-  const workflow = workflows[app.workflow];
-  elements.title.textContent = workflow.title;
-  elements.subtitle.textContent = workflow.subtitle;
-  elements.icon.textContent = workflow.icon;
+  const scenario = scenarios[state.scenario];
+  elements.title.textContent = scenario.title;
+  elements.subtitle.textContent = scenario.subtitle;
+  elements.icon.textContent = scenario.icon;
+  elements.task.value = elements.task.value || scenario.task;
   elements.cards.forEach((card, index) => {
-    const selected = card.dataset.workflow === app.workflow;
+    const selected = card.dataset.workflow === state.scenario;
     card.classList.toggle("selected", selected);
     card.setAttribute("aria-pressed", String(selected));
-    if (selected) document.querySelector(".scenario-count").innerHTML = `${String(index + 1).padStart(2, "0")} <span>/</span> 03`;
+    card.disabled = Boolean(state.sessionId);
+    if (selected) {
+      document.querySelector(".scenario-count").innerHTML = `${String(index + 1).padStart(2, "0")} <span>/</span> 03`;
+    }
   });
-  elements.status.dataset.state = app.state;
-  elements.status.innerHTML = `<span class="status-dot"></span> ${statusLabels[app.state]}`;
-  renderSteps();
-  const currentStep = app.step >= 0 ? workflow.steps[app.step] : null;
-  renderScreen(currentStep);
 
-  const isApproval = app.state === "awaiting";
-  elements.approval.hidden = !isApproval;
-  elements.approvalCopy.textContent = workflow.approval || "";
-  elements.start.hidden = app.state === "complete" || app.state === "declined";
-  elements.reset.hidden = !elements.start.hidden;
-  elements.start.disabled = isApproval;
-  elements.start.innerHTML = app.state === "ready"
-    ? 'Start workflow <span aria-hidden="true">→</span>'
-    : 'Run next action <span aria-hidden="true">→</span>';
+  const active = Boolean(state.sessionId);
+  elements.setup.hidden = active;
+  elements.start.hidden = active;
+  elements.action.hidden = state.status !== "awaiting_action";
+  elements.approve.hidden = state.status !== "awaiting_action";
+  elements.decline.hidden = !["awaiting_action", "awaiting_recommendation"].includes(state.status);
+  elements.recommendationCard.hidden = state.status !== "awaiting_recommendation";
+  elements.approveRecommendation.hidden = state.status !== "awaiting_recommendation";
+  elements.close.hidden = !["completed", "declined", "error"].includes(state.status);
+  elements.secondaryUrl.hidden = state.scenario !== "multi";
+  elements.secondaryLabel.hidden = state.scenario !== "multi";
+
+  const progress = state.actionCount || 0;
+  elements.counter.textContent = `${progress} / 20 actions`;
+  elements.activityTitle.textContent = active ? "Review each step" : "Configure a run";
+
+  if (state.action) {
+    elements.actionTitle.textContent = `Proposed action · ${state.action.type}`;
+    elements.actionDescription.textContent = describeAction(state.action);
+  }
+  if (state.safetyChecks?.length) {
+    elements.safetyChecks.hidden = false;
+    elements.safetyChecks.textContent = `Foundry safety check: ${state.safetyChecks.map((check) => check.message || check.code).join("; ")}`;
+  } else {
+    elements.safetyChecks.hidden = true;
+    elements.safetyChecks.textContent = "";
+  }
+  if (state.message) elements.feedback.textContent = state.message;
+  setStatus(state.status);
 }
 
-function advance() {
-  const steps = workflows[app.workflow].steps;
-  if (app.state === "ready") {
-    app.state = "running";
-    app.step = 0;
-  } else if (app.state === "running") {
-    if (app.step === steps.length - 1) {
-      app.state = "complete";
-    } else {
-      app.step += 1;
-      if (steps[app.step].gate) app.state = "awaiting";
-    }
+function describeAction(action) {
+  const keys = Array.isArray(action.keys) ? action.keys : action.keys ? [action.keys] : [];
+  switch (action.type) {
+    case "click":
+      return `Click at screen position (${action.x}, ${action.y}).`;
+    case "double_click":
+      return `Double-click at screen position (${action.x}, ${action.y}).`;
+    case "type":
+      return `Type: “${action.text}”`;
+    case "key":
+    case "keypress":
+      return `Press: ${keys.join(" + ")}.`;
+    case "scroll":
+      return `Scroll ${action.scroll_y || 0}px vertically and ${action.scroll_x || 0}px horizontally.`;
+    case "drag":
+      return "Drag along the proposed screen path.";
+    case "move":
+      return `Move pointer to (${action.x}, ${action.y}).`;
+    case "wait":
+      return "Wait for the current page to respond.";
+    case "screenshot":
+      return "Capture the current screen.";
+    default:
+      return "Review the screen and proposed operation.";
   }
+}
+
+function showScreenshot(dataUrl) {
+  const image = document.createElement("img");
+  image.className = "live-screenshot";
+  image.alt = "Current screenshot of the isolated target application";
+  image.src = dataUrl;
+  elements.screen.replaceChildren(image);
+  elements.screenApp.textContent = "Customer-configured application";
+  elements.stepCaption.textContent = "REAL APPLICATION SCREEN";
+}
+
+async function api(path, payload = {}) {
+  const response = await fetch(path, {
+    method: path === "/api/config" ? "GET" : "POST",
+    headers: path === "/api/config" ? {} : { "Content-Type": "application/json" },
+    body: path === "/api/config" ? undefined : JSON.stringify(payload),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || "The local demo server returned an error.");
+  return result;
+}
+
+function showError(error) {
+  state.status = "error";
+  elements.feedback.textContent = error.message;
+  setBusy(false);
   render();
+}
+
+async function refreshConfig() {
+  try {
+    const config = await api("/api/config");
+    state.allowedOrigins = config.allowedOrigins;
+    elements.allowed.textContent = config.configured
+      ? `Foundry model: ${config.model}. Allowed app origins: ${config.allowedOrigins.join(", ")}`
+      : "Setup required: configure your Foundry project, sign in with Azure CLI, and allowlist test-app origins in the local server environment.";
+    elements.allowed.classList.toggle("warning", !config.configured);
+  } catch (error) {
+    elements.allowed.textContent = error.message;
+    elements.allowed.classList.add("warning");
+  }
 }
 
 elements.cards.forEach((card) => {
   card.addEventListener("click", () => {
-    app.workflow = card.dataset.workflow;
-    app.step = -1;
-    app.state = "ready";
+    if (state.sessionId) return;
+    state.scenario = card.dataset.workflow;
+    elements.task.value = scenarios[state.scenario].task;
+    elements.secondaryUrl.value = "";
     render();
   });
 });
-elements.start.addEventListener("click", advance);
-elements.reset.addEventListener("click", () => {
-  app.step = -1;
-  app.state = "ready";
-  render();
+
+elements.start.addEventListener("click", async () => {
+  elements.feedback.textContent = "";
+  setBusy(true);
+  setStatus("starting");
+  try {
+    const session = await api("/api/sessions", {
+      scenario: state.scenario,
+      startUrl: elements.startUrl.value.trim(),
+      secondaryUrl: elements.secondaryUrl.value.trim(),
+      task: elements.task.value.trim(),
+    });
+    state.sessionId = session.sessionId;
+    Object.assign(state, session);
+    showScreenshot(session.screenshot);
+    render();
+  } catch (error) {
+    showError(error);
+  }
 });
-elements.approve.addEventListener("click", () => {
-  app.state = "running";
-  app.step += 1;
-  render();
+
+elements.approve.addEventListener("click", async () => {
+  setBusy(true);
+  try {
+    const result = await api("/api/approve-action", { sessionId: state.sessionId });
+    Object.assign(state, result);
+    showScreenshot(result.screenshot);
+    render();
+  } catch (error) {
+    showError(error);
+  } finally {
+    setBusy(false);
+  }
 });
-elements.decline.addEventListener("click", () => {
-  app.state = "declined";
+
+elements.approveRecommendation.addEventListener("click", async () => {
+  setBusy(true);
+  try {
+    const result = await api("/api/approve-recommendation", { sessionId: state.sessionId });
+    Object.assign(state, result);
+    showScreenshot(result.screenshot);
+    render();
+  } catch (error) {
+    showError(error);
+  } finally {
+    setBusy(false);
+  }
+});
+
+elements.decline.addEventListener("click", async () => {
+  setBusy(true);
+  try {
+    const result = await api("/api/decline", { sessionId: state.sessionId });
+    state.sessionId = null;
+    state.message = result.message;
+    state.action = null;
+    state.status = "declined";
+    render();
+  } catch (error) {
+    showError(error);
+  } finally {
+    setBusy(false);
+  }
+});
+
+elements.close.addEventListener("click", async () => {
+  if (state.sessionId) {
+    try {
+      await api("/api/close", { sessionId: state.sessionId });
+    } catch (error) {
+      elements.feedback.textContent = error.message;
+    }
+  }
+  state.sessionId = null;
+  state.message = "";
+  state.action = null;
+  state.actionCount = 0;
+  state.status = "ready";
+  elements.screen.replaceChildren();
+  const empty = document.createElement("div");
+  empty.className = "screen-empty";
+  empty.innerHTML = '<span class="screen-empty-icon" aria-hidden="true">⌘</span><strong>Connect a sandbox application</strong><p>Enter an allowed test-app URL and task to begin a real Foundry computer-use session.</p>';
+  elements.screen.append(empty);
+  elements.screenApp.textContent = "No browser session";
+  elements.stepCaption.textContent = "WAITING TO START";
+  elements.feedback.textContent = "";
   render();
 });
 
 render();
+refreshConfig();
