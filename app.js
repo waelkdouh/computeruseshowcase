@@ -186,7 +186,7 @@ async function refreshConfig() {
     state.allowedOrigins = config.allowedOrigins;
     elements.allowed.textContent = config.configured
       ? `Foundry model: ${config.model}. Allowed app origins: ${config.allowedOrigins.join(", ")}`
-      : "Setup required: configure your Foundry project, sign in with Azure CLI, and allowlist test-app origins in the local server environment.";
+      : "Setup required: set your Foundry project endpoint and allowed test-app origins in .env, sign in with Azure CLI, then restart the local server.";
     elements.allowed.classList.toggle("warning", !config.configured);
   } catch (error) {
     elements.allowed.textContent = error.message;

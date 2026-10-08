@@ -1,8 +1,34 @@
+import os
+import runpy
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import server
+
+
+SETTING_NAMES = (
+    "FOUNDRY_PROJECT_ENDPOINT",
+    "COMPUTER_USE_MODEL_DEPLOYMENT_NAME",
+    "COMPUTER_USE_ALLOWED_ORIGINS",
+    "PORT",
+)
+
+
+def load_server_settings(env_file_text=None, shell_environment=None):
+    """Run a copy of server.py from a temporary folder with a controlled shell environment."""
+    with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ):
+        for name in SETTING_NAMES:
+            os.environ.pop(name, None)
+        os.environ.update(shell_environment or {})
+        server_copy = Path(folder, "server.py")
+        shutil.copy(server.__file__, server_copy)
+        if env_file_text is not None:
+            Path(folder, ".env").write_text(env_file_text, encoding="utf-8")
+        return runpy.run_path(str(server_copy))
 
 
 class BrowserStub:
@@ -31,6 +57,37 @@ class BrowserStub:
 
 
 class ComputerUseServerTests(unittest.TestCase):
+    def test_env_file_overrides_shell_values_and_shell_fills_missing_keys(self):
+        settings = load_server_settings(
+            env_file_text=(
+                "FOUNDRY_PROJECT_ENDPOINT=https://from-file.example.test/api/projects/demo\n"
+                "COMPUTER_USE_ALLOWED_ORIGINS=https://crm.example.test/, https://portal.example.test\n"
+                "PORT=9123\n"
+            ),
+            shell_environment={
+                "FOUNDRY_PROJECT_ENDPOINT": "https://stale-shell.example.test/api/projects/old",
+                "COMPUTER_USE_ALLOWED_ORIGINS": "https://stale-shell.example.test",
+                "PORT": "2222",
+                "COMPUTER_USE_MODEL_DEPLOYMENT_NAME": "model-from-shell",
+            },
+        )
+        self.assertEqual(settings["FOUNDRY_ENDPOINT"], "https://from-file.example.test/api/projects/demo")
+        self.assertEqual(
+            settings["ALLOWED_ORIGINS"],
+            {"https://crm.example.test", "https://portal.example.test"},
+        )
+        self.assertEqual(settings["PORT"], 9123)
+        self.assertEqual(settings["MODEL"], "model-from-shell")
+
+    def test_shell_values_and_defaults_apply_without_env_file(self):
+        settings = load_server_settings(
+            shell_environment={"FOUNDRY_PROJECT_ENDPOINT": "https://from-shell.example.test/api/projects/demo"},
+        )
+        self.assertEqual(settings["FOUNDRY_ENDPOINT"], "https://from-shell.example.test/api/projects/demo")
+        self.assertEqual(settings["ALLOWED_ORIGINS"], set())
+        self.assertEqual(settings["MODEL"], "computer-use-preview")
+        self.assertEqual(settings["PORT"], 8765)
+
     def test_agent_version_and_temporary_agent_are_deleted(self):
         calls = []
 
