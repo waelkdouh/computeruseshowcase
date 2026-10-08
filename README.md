@@ -14,6 +14,8 @@ See Microsoft's [current Computer Use Preview guide](https://learn.microsoft.com
 
 ## Configure and start
 
+On macOS or Linux:
+
 ```sh
 cd /path/to/computeruseshowcase
 python3 -m venv .venv
@@ -22,6 +24,19 @@ python -m pip install -r requirements.txt
 python -m playwright install chromium
 cp .env.example .env
 ```
+
+On Windows, in PowerShell:
+
+```powershell
+cd C:\path\to\computeruseshowcase
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m playwright install chromium
+Copy-Item .env.example .env
+```
+
+If PowerShell blocks `Activate.ps1`, run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned` and try again.
 
 Edit `.env` with the project endpoint shown in your Foundry project's **Overview**, the name of your computer-use model deployment, and the exact origins of the test apps the browser is permitted to access. For example:
 
@@ -32,13 +47,25 @@ COMPUTER_USE_ALLOWED_ORIGINS=https://crm-test.example.com,https://portal-test.ex
 PORT=8765
 ```
 
-Authenticate with Azure CLI and start the local server. The endpoint listens only on loopback.
+Authenticate with Azure CLI, load `.env` into the current shell, and start the local server. The endpoint listens only on loopback.
+
+On macOS or Linux:
 
 ```sh
 az login
 set -a
 . ./.env
 set +a
+python server.py
+```
+
+On Windows, in PowerShell:
+
+```powershell
+az login
+Get-Content .env | ForEach-Object {
+  if ($_ -match '^\s*([^#\s=][^=]*)=(.*)$') { Set-Item "Env:$($Matches[1].Trim())" $Matches[2].Trim() }
+}
 python server.py
 ```
 
