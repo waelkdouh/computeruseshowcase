@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f6f7f9">
+    <meta name="description" content="Explore three interactive computer-use workflow examples.">
+    <title>Computer Use Showcase</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Computer Use Showcase home">
+          <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+          <span>Computer Use <strong>Showcase</strong></span>
+        </a>
+        <div class="demo-label"><span class="status-dot"></span> Interactive demo <span class="label-divider"></span> No live systems connected</div>
+      </header>
+
+      <main>
+        <section class="intro">
+          <div class="eyebrow"><span class="eyebrow-line"></span> COMPUTER USE · PREVIEW</div>
+          <h1>From screen to <span>done.</span></h1>
+          <p>See how an agent can work across everyday business software — with a person in control when it matters.</p>
+        </section>
+
+        <section class="workflow-section" aria-labelledby="workflow-heading">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">CHOOSE A SCENARIO</div>
+              <h2 id="workflow-heading">Three ways to get work done</h2>
+            </div>
+            <span class="scenario-count">01 <span>/</span> 03</span>
+          </div>
+          <div class="workflow-list" role="group" aria-label="Workflow scenarios">
+            <button class="workflow-card selected" type="button" data-workflow="legacy" aria-pressed="true">
+              <span class="card-icon icon-violet" aria-hidden="true">⌘</span>
+              <span class="card-copy"><strong>Legacy application</strong><span>Find a customer and update their record.</span></span>
+              <span class="card-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button class="workflow-card" type="button" data-workflow="multi" aria-pressed="false">
+              <span class="card-icon icon-blue" aria-hidden="true">⤢</span>
+              <span class="card-copy"><strong>Across systems</strong><span>Turn an email into an up-to-date summary.</span></span>
+              <span class="card-arrow" aria-hidden="true">↗</span>
+            </button>
+            <button class="workflow-card" type="button" data-workflow="approval" aria-pressed="false">
+              <span class="card-icon icon-amber" aria-hidden="true">✓</span>
+              <span class="card-copy"><strong>Human approval</strong><span>Review a recommendation before action.</span></span>
+              <span class="card-arrow" aria-hidden="true">↗</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="workspace" aria-label="Workflow walkthrough">
+          <div class="workspace-header">
+            <div class="workspace-title">
+              <span class="workspace-icon" id="workspace-icon" aria-hidden="true">⌘</span>
+              <div>
+                <h2 id="workflow-title">Legacy application navigation</h2>
+                <p id="workflow-subtitle">Update a customer record in a line-of-business app</p>
+              </div>
+            </div>
+            <span class="run-status" id="run-status"><span class="status-dot"></span> Ready</span>
+          </div>
+
+          <div class="workspace-body">
+            <div class="computer-panel">
+              <div class="panel-topline">
+                <span class="panel-label"><span class="recording-dot"></span> AGENT VIEW</span>
+                <span class="panel-caption" id="step-caption">WAITING TO START</span>
+              </div>
+              <div class="screen" id="screen" aria-live="polite"></div>
+              <div class="computer-footer">
+                <span><span class="secure-icon" aria-hidden="true">◇</span> Simulated environment</span>
+                <span id="screen-app">Business workspace</span>
+              </div>
+            </div>
+
+            <aside class="activity-panel" aria-label="Workflow activity">
+              <div class="activity-heading">
+                <div>
+                  <div class="eyebrow">WORKFLOW</div>
+                  <h3>Activity</h3>
+                </div>
+                <span id="step-counter">0 / 4</span>
+              </div>
+              <ol class="step-list" id="step-list"></ol>
+              <div class="approval-card" id="approval-card" hidden>
+                <div class="approval-heading"><span class="approval-icon" aria-hidden="true">!</span><strong>Your decision</strong></div>
+                <p id="approval-copy"></p>
+                <div class="approval-actions">
+                  <button type="button" class="button button-secondary" id="decline-button">Decline</button>
+                  <button type="button" class="button button-approve" id="approve-button">Approve</button>
+                </div>
+              </div>
+              <div class="workflow-controls">
+                <button type="button" class="button button-primary" id="start-button">Start workflow <span aria-hidden="true">→</span></button>
+                <button type="button" class="button button-reset" id="reset-button" hidden>Run again</button>
+              </div>
+            </aside>
+          </div>
+          <div class="workspace-note"><span aria-hidden="true">ⓘ</span> A guided simulation — actions are illustrative and do not affect real applications.</div>
+        </section>
+
+        <footer class="page-footer">
+          <span>Built to explore human-centered computer use.</span>
+          <a href="https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure?pivots=azure-openai#computer-use-preview" target="_blank" rel="noreferrer">About Computer Use Preview <span aria-hidden="true">↗</span></a>
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>
