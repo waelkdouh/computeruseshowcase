@@ -19,10 +19,13 @@ from azure.ai.projects.models import (
     VersionSelector,
 )
 from azure.identity import DefaultAzureCredential
+from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
 
 
 ROOT = Path(__file__).resolve().parent
+# Values in .env take precedence over stale shell variables; unset keys still fall back to the shell.
+load_dotenv(ROOT / ".env", override=True)
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("PORT", "8765"))
 WIDTH = 1280
@@ -419,9 +422,9 @@ class Handler(SimpleHTTPRequestHandler):
     def start_session(self, body):
         global active_session
         if not project:
-            return self.send_json(503, {"error": "Configure FOUNDRY_PROJECT_ENDPOINT and run az login before starting a session."})
+            return self.send_json(503, {"error": "Set FOUNDRY_PROJECT_ENDPOINT in .env, run az login, and restart the server before starting a session."})
         if not ALLOWED_ORIGINS:
-            return self.send_json(503, {"error": "Configure COMPUTER_USE_ALLOWED_ORIGINS before starting a session."})
+            return self.send_json(503, {"error": "Set COMPUTER_USE_ALLOWED_ORIGINS in .env and restart the server before starting a session."})
 
         start_url = validate_target(str(body.get("startUrl", "")).strip())
         secondary_url = str(body.get("secondaryUrl", "")).strip()

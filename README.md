@@ -47,27 +47,14 @@ COMPUTER_USE_ALLOWED_ORIGINS=https://crm-test.example.com,https://portal-test.ex
 PORT=8765
 ```
 
-Authenticate with Azure CLI, load `.env` into the current shell, and start the local server. The endpoint listens only on loopback.
-
-On macOS or Linux:
+Authenticate with Azure CLI and start the local server from the activated virtual environment. The same commands work on macOS, Linux, and Windows PowerShell. The endpoint listens only on loopback.
 
 ```sh
 az login
-set -a
-. ./.env
-set +a
 python server.py
 ```
 
-On Windows, in PowerShell:
-
-```powershell
-az login
-Get-Content .env | ForEach-Object {
-  if ($_ -match '^\s*([^#\s=][^=]*)=(.*)$') { Set-Item "Env:$($Matches[1].Trim())" $Matches[2].Trim() }
-}
-python server.py
-```
+`server.py` loads `.env` from the repository folder each time it starts, so you don't need to load it into your shell first. Restart the server after you edit `.env`. Values in `.env` take precedence over environment variables with the same names; settings not in `.env` can still come from environment variables.
 
 Open <http://127.0.0.1:8765>. Choose a scenario, enter the first test-app URL and a specific task, then start the run. The multi-system scenario also needs the second app's URL. The model can switch between the configured origins with **Ctrl+L**, type the provided URL, and press **Enter**; other origins are blocked. It can use normal in-app links as well.
 
